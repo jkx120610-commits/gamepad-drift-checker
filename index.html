@@ -1,0 +1,1721 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>手柄部件偏移检测</title>
+  <style>
+    :root {
+      color-scheme: light;
+      --bg: #edf1f2;
+      --surface: #ffffff;
+      --surface-2: #f6f8f8;
+      --ink: #172126;
+      --muted: #65747a;
+      --line: #d8e0e2;
+      --line-strong: #bcc9cc;
+      --teal: #0b6a62;
+      --teal-soft: #dcefeb;
+      --orange: #cc4d28;
+      --orange-soft: #f9e5dc;
+      --red: #b6372d;
+      --red-soft: #f7dfdc;
+      --green: #236b4b;
+      --green-soft: #dfefe5;
+      --yellow: #9a6911;
+      --yellow-soft: #f7edcf;
+      --shadow: 0 10px 30px rgba(31, 47, 52, 0.07);
+      --radius: 8px;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    html {
+      min-width: 320px;
+      background: var(--bg);
+    }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      color: var(--ink);
+      background:
+        linear-gradient(rgba(23, 33, 38, 0.025) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(23, 33, 38, 0.025) 1px, transparent 1px),
+        var(--bg);
+      background-size: 24px 24px;
+      font-family: "Segoe UI", "Microsoft YaHei", "PingFang SC", sans-serif;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    button,
+    input {
+      font: inherit;
+    }
+
+    button {
+      color: inherit;
+    }
+
+    .app {
+      width: min(1240px, calc(100% - 40px));
+      margin: 0 auto;
+      padding: 24px 0 36px;
+    }
+
+    .app-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 24px;
+      padding: 2px 0 18px;
+      border-bottom: 1px solid var(--line-strong);
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      min-width: 0;
+    }
+
+    .brand-mark {
+      width: 42px;
+      height: 42px;
+      flex: 0 0 42px;
+      display: grid;
+      place-items: center;
+      border-radius: 50%;
+      background: var(--ink);
+      color: #ffffff;
+      font: 600 12px/1 "Segoe UI", sans-serif;
+    }
+
+    .brand-copy {
+      min-width: 0;
+    }
+
+    .brand-kicker {
+      margin: 0 0 3px;
+      color: var(--muted);
+      font-size: 11px;
+      font-weight: 600;
+      line-height: 1.2;
+    }
+
+    h1 {
+      margin: 0;
+      font-size: clamp(24px, 3vw, 34px);
+      line-height: 1.1;
+      font-weight: 600;
+    }
+
+    .header-tools {
+      display: flex;
+      align-items: center;
+      justify-content: flex-end;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+
+    .connection-chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      min-height: 38px;
+      padding: 0 12px;
+      border: 1px solid var(--line);
+      border-radius: 999px;
+      background: rgba(255, 255, 255, 0.72);
+      color: var(--muted);
+      font-size: 13px;
+      white-space: nowrap;
+    }
+
+    .status-dot {
+      width: 8px;
+      height: 8px;
+      flex: 0 0 8px;
+      border-radius: 50%;
+      background: #9aa8ac;
+      box-shadow: 0 0 0 3px rgba(154, 168, 172, 0.14);
+    }
+
+    .connection-chip.connected {
+      color: var(--green);
+      border-color: #b9d8c6;
+      background: var(--green-soft);
+    }
+
+    .connection-chip.connected .status-dot {
+      background: var(--green);
+      box-shadow: 0 0 0 3px rgba(35, 107, 75, 0.14);
+    }
+
+    .button {
+      min-height: 42px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      padding: 0 16px;
+      border: 1px solid var(--line-strong);
+      border-radius: 6px;
+      background: var(--surface);
+      color: var(--ink);
+      font-weight: 600;
+      cursor: pointer;
+      transition: background 140ms ease, border-color 140ms ease, transform 140ms ease;
+    }
+
+    .button:hover {
+      border-color: #94a5aa;
+      background: var(--surface-2);
+    }
+
+    .button:active {
+      transform: translateY(1px);
+    }
+
+    .button:focus-visible,
+    .zoom-button:focus-visible {
+      outline: 3px solid rgba(11, 106, 98, 0.24);
+      outline-offset: 2px;
+    }
+
+    .button.primary {
+      border-color: var(--ink);
+      background: var(--ink);
+      color: #ffffff;
+    }
+
+    .button.primary:hover {
+      background: #26343a;
+    }
+
+    .button:disabled {
+      cursor: wait;
+      opacity: 0.7;
+      transform: none;
+    }
+
+    .button svg {
+      width: 16px;
+      height: 16px;
+      flex: 0 0 16px;
+    }
+
+    .notice {
+      display: none;
+      align-items: center;
+      justify-content: space-between;
+      gap: 18px;
+      margin-top: 16px;
+      padding: 13px 16px;
+      border: 1px solid #c9d9d7;
+      border-left: 3px solid var(--teal);
+      border-radius: var(--radius);
+      background: var(--surface);
+      box-shadow: var(--shadow);
+    }
+
+    .notice.visible {
+      display: flex;
+    }
+
+    .notice-main {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      min-width: 0;
+    }
+
+    .notice-icon {
+      width: 30px;
+      height: 30px;
+      flex: 0 0 30px;
+      display: grid;
+      place-items: center;
+      border-radius: 50%;
+      background: var(--teal-soft);
+      color: var(--teal);
+      font-size: 18px;
+      font-weight: 600;
+    }
+
+    .notice strong {
+      display: block;
+      margin-bottom: 2px;
+      font-size: 14px;
+    }
+
+    .notice span {
+      color: var(--muted);
+      font-size: 12px;
+    }
+
+    .notice-tag {
+      flex: 0 0 auto;
+      padding: 5px 8px;
+      border-radius: 4px;
+      background: var(--surface-2);
+      color: var(--muted);
+      font-size: 11px;
+      font-weight: 600;
+    }
+
+    .workspace {
+      display: grid;
+      grid-template-columns: minmax(0, 1.45fr) minmax(300px, 0.72fr);
+      gap: 16px;
+      margin-top: 16px;
+      align-items: start;
+    }
+
+    .sticks-section {
+      display: grid;
+      gap: 12px;
+    }
+
+    .section-bar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      min-height: 30px;
+    }
+
+    .section-title {
+      margin: 0;
+      font-size: 13px;
+      line-height: 1.3;
+      font-weight: 600;
+    }
+
+    .section-meta {
+      color: var(--muted);
+      font-size: 12px;
+    }
+
+    .zoom-control {
+      display: inline-flex;
+      align-items: center;
+      gap: 2px;
+      padding: 3px;
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      background: var(--surface);
+    }
+
+    .zoom-control > span {
+      padding: 0 7px;
+      color: var(--muted);
+      font-size: 11px;
+    }
+
+    .zoom-button {
+      min-width: 38px;
+      min-height: 28px;
+      padding: 0 7px;
+      border: 0;
+      border-radius: 4px;
+      background: transparent;
+      color: var(--muted);
+      font-size: 11px;
+      font-weight: 600;
+      cursor: pointer;
+    }
+
+    .zoom-button.active {
+      background: var(--ink);
+      color: #ffffff;
+    }
+
+    .sticks-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 12px;
+    }
+
+    .stick-card {
+      min-width: 0;
+      padding: 16px;
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      background: var(--surface);
+      box-shadow: var(--shadow);
+    }
+
+    .stick-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      margin-bottom: 10px;
+    }
+
+    .stick-title {
+      margin: 0;
+      font-size: 14px;
+      font-weight: 600;
+    }
+
+    .live-state {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 4px 7px;
+      border-radius: 4px;
+      background: var(--surface-2);
+      color: var(--muted);
+      font-size: 11px;
+      font-weight: 600;
+      white-space: nowrap;
+    }
+
+    .live-state::before {
+      content: "";
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: currentColor;
+    }
+
+    .live-state.ok {
+      color: var(--green);
+      background: var(--green-soft);
+    }
+
+    .live-state.warn {
+      color: var(--yellow);
+      background: var(--yellow-soft);
+    }
+
+    .live-state.bad {
+      color: var(--red);
+      background: var(--red-soft);
+    }
+
+    .stick-stage {
+      position: relative;
+      width: min(100%, 340px);
+      aspect-ratio: 1 / 1;
+      margin: 0 auto;
+      overflow: hidden;
+      border-radius: 6px;
+      background: var(--surface-2);
+    }
+
+    .stick-stage svg {
+      display: block;
+      width: 100%;
+      height: 100%;
+    }
+
+    .plot-bg {
+      fill: var(--surface-2);
+    }
+
+    .plot-grid {
+      fill: none;
+      stroke: var(--line);
+      stroke-width: 1;
+    }
+
+    .plot-cross {
+      stroke: #c9d3d5;
+      stroke-width: 1;
+    }
+
+    .plot-center {
+      fill: var(--surface);
+      stroke: var(--line-strong);
+      stroke-width: 1.5;
+    }
+
+    .drift-ring {
+      fill: none;
+      stroke: var(--orange);
+      stroke-width: 1.5;
+      stroke-dasharray: 4 4;
+      opacity: 0.78;
+    }
+
+    .stick-trail {
+      fill: none;
+      stroke-width: 2;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+      opacity: 0.28;
+    }
+
+    .center-link {
+      stroke-width: 2;
+      stroke-linecap: round;
+      opacity: 0.46;
+    }
+
+    .stick-point {
+      stroke-width: 3;
+      stroke: var(--surface);
+      filter: drop-shadow(0 2px 4px rgba(23, 33, 38, 0.22));
+    }
+
+    .stick-card.left .stick-trail,
+    .stick-card.left .center-link {
+      stroke: var(--teal);
+    }
+
+    .stick-card.left .stick-point {
+      fill: var(--teal);
+    }
+
+    .stick-card.right .stick-trail,
+    .stick-card.right .center-link {
+      stroke: var(--orange);
+    }
+
+    .stick-card.right .stick-point {
+      fill: var(--orange);
+    }
+
+    .axis-tag {
+      fill: var(--muted);
+      font-size: 10px;
+      font-weight: 600;
+    }
+
+    .stage-caption {
+      position: absolute;
+      right: 10px;
+      bottom: 8px;
+      color: var(--muted);
+      font-size: 10px;
+      pointer-events: none;
+    }
+
+    .readout-grid {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 1px;
+      margin-top: 12px;
+      overflow: hidden;
+      border: 1px solid var(--line);
+      border-radius: 5px;
+      background: var(--line);
+    }
+
+    .readout {
+      min-width: 0;
+      padding: 9px 10px;
+      background: var(--surface);
+    }
+
+    .readout-label {
+      display: block;
+      margin-bottom: 3px;
+      color: var(--muted);
+      font-size: 10px;
+      line-height: 1.2;
+    }
+
+    .readout-value {
+      display: block;
+      overflow: hidden;
+      font-size: 14px;
+      font-weight: 600;
+      line-height: 1.25;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      font-variant-numeric: tabular-nums;
+    }
+
+    .instrument {
+      display: grid;
+      gap: 12px;
+      min-width: 0;
+    }
+
+    .panel {
+      padding: 18px;
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      background: var(--surface);
+      box-shadow: var(--shadow);
+    }
+
+    .panel-heading {
+      display: flex;
+      align-items: start;
+      justify-content: space-between;
+      gap: 12px;
+      margin-bottom: 14px;
+    }
+
+    .panel-heading h2 {
+      margin: 0 0 3px;
+      font-size: 15px;
+      line-height: 1.25;
+      font-weight: 600;
+    }
+
+    .panel-heading p {
+      margin: 0;
+      color: var(--muted);
+      font-size: 11px;
+      line-height: 1.4;
+    }
+
+    .duration-tag {
+      flex: 0 0 auto;
+      padding: 4px 7px;
+      border-radius: 4px;
+      background: var(--surface-2);
+      color: var(--muted);
+      font-size: 10px;
+      font-weight: 600;
+    }
+
+    .test-result {
+      padding: 13px 14px;
+      border-left: 3px solid var(--line-strong);
+      border-radius: 0 5px 5px 0;
+      background: var(--surface-2);
+    }
+
+    .test-result.ok {
+      border-left-color: var(--green);
+      background: var(--green-soft);
+    }
+
+    .test-result.warn {
+      border-left-color: var(--yellow);
+      background: var(--yellow-soft);
+    }
+
+    .test-result.bad {
+      border-left-color: var(--red);
+      background: var(--red-soft);
+    }
+
+    .result-label {
+      display: block;
+      margin-bottom: 3px;
+      color: var(--muted);
+      font-size: 10px;
+      font-weight: 600;
+    }
+
+    .result-title {
+      display: block;
+      font-size: 18px;
+      font-weight: 600;
+      line-height: 1.3;
+    }
+
+    .result-note {
+      margin: 5px 0 0;
+      color: var(--muted);
+      font-size: 11px;
+      line-height: 1.45;
+    }
+
+    .progress-track {
+      height: 5px;
+      margin: 13px 0 2px;
+      overflow: hidden;
+      border-radius: 999px;
+      background: var(--surface-2);
+    }
+
+    .progress-fill {
+      width: 0%;
+      height: 100%;
+      border-radius: inherit;
+      background: var(--teal);
+      transition: width 80ms linear;
+    }
+
+    .progress-labels {
+      display: flex;
+      justify-content: space-between;
+      color: var(--muted);
+      font-size: 10px;
+    }
+
+    .metrics {
+      margin-top: 13px;
+      border-top: 1px solid var(--line);
+    }
+
+    .metric-row {
+      display: grid;
+      grid-template-columns: minmax(92px, 1fr) auto;
+      align-items: center;
+      gap: 12px;
+      min-height: 36px;
+      border-bottom: 1px solid var(--line);
+      font-size: 12px;
+    }
+
+    .metric-name {
+      color: var(--muted);
+    }
+
+    .metric-value {
+      font-weight: 600;
+      font-variant-numeric: tabular-nums;
+      text-align: right;
+    }
+
+    .threshold-note {
+      margin: 10px 0 0;
+      color: var(--muted);
+      font-size: 10px;
+      line-height: 1.5;
+    }
+
+    .device-name {
+      margin: 0;
+      overflow-wrap: anywhere;
+      font-size: 14px;
+      font-weight: 600;
+      line-height: 1.4;
+    }
+
+    .device-meta {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 8px;
+      margin-top: 12px;
+    }
+
+    .device-cell {
+      min-width: 0;
+      padding: 8px 9px;
+      border-radius: 5px;
+      background: var(--surface-2);
+    }
+
+    .device-cell span {
+      display: block;
+      margin-bottom: 2px;
+      color: var(--muted);
+      font-size: 9px;
+    }
+
+    .device-cell strong {
+      display: block;
+      overflow: hidden;
+      font-size: 11px;
+      font-weight: 600;
+      line-height: 1.35;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .input-strip {
+      display: grid;
+      grid-template-columns: minmax(0, 1.8fr) minmax(220px, 0.7fr);
+      gap: 12px;
+      margin-top: 12px;
+    }
+
+    .button-panel,
+    .trigger-panel {
+      padding: 16px;
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      background: var(--surface);
+      box-shadow: var(--shadow);
+    }
+
+    .mini-heading {
+      display: flex;
+      align-items: baseline;
+      justify-content: space-between;
+      gap: 12px;
+      margin-bottom: 12px;
+    }
+
+    .mini-heading h2 {
+      margin: 0;
+      font-size: 13px;
+      font-weight: 600;
+    }
+
+    .mini-heading span {
+      color: var(--muted);
+      font-size: 10px;
+    }
+
+    .button-grid {
+      display: grid;
+      grid-template-columns: repeat(9, minmax(36px, 1fr));
+      gap: 6px;
+    }
+
+    .pad-button {
+      min-width: 0;
+      min-height: 38px;
+      padding: 3px 2px;
+      border: 1px solid var(--line);
+      border-radius: 4px;
+      background: var(--surface-2);
+      color: var(--muted);
+      font-size: 9px;
+      font-weight: 600;
+      line-height: 1.15;
+      text-align: center;
+      transition: background 60ms linear, color 60ms linear, border-color 60ms linear;
+    }
+
+    .pad-button span {
+      display: block;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .pad-button.active {
+      border-color: var(--teal);
+      background: var(--teal-soft);
+      color: var(--teal);
+    }
+
+    .trigger-stack {
+      display: grid;
+      gap: 12px;
+    }
+
+    .trigger-row {
+      display: grid;
+      grid-template-columns: 52px minmax(0, 1fr) 42px;
+      align-items: center;
+      gap: 9px;
+    }
+
+    .trigger-name {
+      color: var(--muted);
+      font-size: 10px;
+      font-weight: 600;
+    }
+
+    .trigger-track {
+      height: 8px;
+      overflow: hidden;
+      border-radius: 999px;
+      background: var(--surface-2);
+    }
+
+    .trigger-fill {
+      width: 0%;
+      height: 100%;
+      border-radius: inherit;
+      background: var(--orange);
+      transition: width 40ms linear;
+    }
+
+    .trigger-value {
+      font-size: 10px;
+      font-weight: 600;
+      text-align: right;
+      font-variant-numeric: tabular-nums;
+    }
+
+    .footer-line {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      margin-top: 14px;
+      color: var(--muted);
+      font-size: 10px;
+    }
+
+    .support-warning {
+      display: none;
+      margin-top: 16px;
+      padding: 12px 14px;
+      border: 1px solid #e2c2bd;
+      border-radius: var(--radius);
+      background: var(--red-soft);
+      color: var(--red);
+      font-size: 12px;
+      line-height: 1.5;
+    }
+
+    .support-warning.visible {
+      display: block;
+    }
+
+    @media (max-width: 980px) {
+      .workspace {
+        grid-template-columns: minmax(0, 1fr);
+      }
+
+      .instrument {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+
+      .input-strip {
+        grid-template-columns: minmax(0, 1fr);
+      }
+    }
+
+    @media (max-width: 760px) {
+      .app {
+        width: min(100% - 24px, 640px);
+        padding-top: 14px;
+      }
+
+      .app-header {
+        align-items: flex-start;
+        flex-direction: column;
+        gap: 14px;
+      }
+
+      .header-tools {
+        justify-content: flex-start;
+        width: 100%;
+      }
+
+      .connection-chip {
+        order: -1;
+      }
+
+      .notice {
+        align-items: flex-start;
+        flex-direction: column;
+      }
+
+      .notice-tag {
+        display: none;
+      }
+
+      .section-bar {
+        align-items: flex-start;
+        flex-direction: column;
+      }
+
+      .instrument {
+        grid-template-columns: minmax(0, 1fr);
+      }
+
+      .button-grid {
+        grid-template-columns: repeat(6, minmax(38px, 1fr));
+      }
+    }
+
+    @media (max-width: 540px) {
+      .sticks-grid {
+        grid-template-columns: minmax(0, 1fr);
+      }
+
+      .stick-stage {
+        width: min(100%, 390px);
+      }
+
+      .zoom-control {
+        width: 100%;
+      }
+
+      .zoom-button {
+        flex: 1;
+      }
+
+      .button {
+        flex: 1;
+        padding: 0 12px;
+      }
+
+      .header-tools .button.primary {
+        flex-basis: calc(100% - 10px);
+      }
+
+      .button-grid {
+        grid-template-columns: repeat(4, minmax(44px, 1fr));
+        gap: 7px;
+      }
+
+      .pad-button {
+        min-height: 44px;
+        font-size: 10px;
+      }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      *,
+      *::before,
+      *::after {
+        scroll-behavior: auto !important;
+        transition-duration: 0.01ms !important;
+      }
+    }
+  </style>
+</head>
+<body>
+  <main class="app">
+    <header class="app-header">
+      <div class="brand">
+        <div class="brand-mark" aria-hidden="true">SC</div>
+        <div class="brand-copy">
+          <p class="brand-kicker">STICK CHECK / GAMEPAD DIAGNOSTIC</p>
+          <h1>手柄部件偏移检测</h1>
+        </div>
+      </div>
+      <div class="header-tools">
+        <div class="connection-chip" id="connectionChip">
+          <span class="status-dot" aria-hidden="true"></span>
+          <span id="connectionText">等待手柄</span>
+        </div>
+        <button class="button" id="resetButton" type="button">
+          清空轨迹
+        </button>
+        <button class="button primary" id="startButton" type="button">
+          <span id="startButtonText">开始静止检测</span>
+        </button>
+      </div>
+    </header>
+
+    <div class="support-warning" id="supportWarning" role="alert">
+      当前浏览器不支持 Gamepad API，请使用最新版 Chrome、Edge 或 Firefox。
+    </div>
+
+    <section class="notice visible" id="connectNotice" aria-live="polite">
+      <div class="notice-main">
+        <div class="notice-icon" aria-hidden="true">+</div>
+        <div>
+          <strong id="connectTitle">连接手柄并按下任意按键</strong>
+          <span id="connectDetail">浏览器需要一次硬件输入才能显示手柄数据。</span>
+        </div>
+      </div>
+      <div class="notice-tag">USB / BLUETOOTH</div>
+    </section>
+
+    <div class="workspace">
+      <section class="sticks-section" aria-labelledby="stickHeading">
+        <div class="section-bar">
+          <div>
+            <h2 class="section-title" id="stickHeading">摇杆部件实时轨迹</h2>
+            <span class="section-meta">归一化范围 -1.00 至 1.00</span>
+          </div>
+          <div class="zoom-control" role="group" aria-label="轨迹放大倍数">
+            <span>轨迹放大</span>
+            <button class="zoom-button" type="button" data-zoom="1" aria-pressed="false">1×</button>
+            <button class="zoom-button active" type="button" data-zoom="2" aria-pressed="true">2×</button>
+            <button class="zoom-button" type="button" data-zoom="4" aria-pressed="false">4×</button>
+            <button class="zoom-button" type="button" data-zoom="8" aria-pressed="false">8×</button>
+          </div>
+        </div>
+
+        <div class="sticks-grid">
+          <article class="stick-card left" id="leftCard">
+            <div class="stick-head">
+              <h3 class="stick-title">左摇杆</h3>
+              <span class="live-state" id="leftLiveState">未连接</span>
+            </div>
+            <div class="stick-stage">
+              <svg id="leftPlot" viewBox="0 0 260 260" role="img" aria-label="左摇杆轨迹，当前位置居中">
+                <defs>
+                  <clipPath id="leftClip"><circle cx="130" cy="130" r="112"/></clipPath>
+                </defs>
+                <rect class="plot-bg" x="0" y="0" width="260" height="260" rx="6"/>
+                <circle class="plot-grid" cx="130" cy="130" r="112"/>
+                <circle class="plot-grid" cx="130" cy="130" r="84"/>
+                <circle class="plot-grid" cx="130" cy="130" r="56"/>
+                <line class="plot-cross" x1="18" y1="130" x2="242" y2="130"/>
+                <line class="plot-cross" x1="130" y1="18" x2="130" y2="242"/>
+                <circle class="drift-ring" id="leftDriftRing" cx="130" cy="130" r="16"/>
+                <g clip-path="url(#leftClip)">
+                  <polyline class="stick-trail" id="leftTrail" points=""/>
+                  <line class="center-link" id="leftLink" x1="130" y1="130" x2="130" y2="130"/>
+                </g>
+                <circle class="plot-center" cx="130" cy="130" r="3"/>
+                <circle class="stick-point" id="leftPoint" cx="130" cy="130" r="6"/>
+                <text class="axis-tag" x="238" y="126" text-anchor="end">X</text>
+                <text class="axis-tag" x="134" y="24">Y</text>
+              </svg>
+              <span class="stage-caption">虚线 = 0.07 偏移阈值</span>
+            </div>
+            <div class="readout-grid">
+              <div class="readout">
+                <span class="readout-label">X 轴</span>
+                <span class="readout-value" id="leftX">0.000</span>
+              </div>
+              <div class="readout">
+                <span class="readout-label">Y 轴</span>
+                <span class="readout-value" id="leftY">0.000</span>
+              </div>
+              <div class="readout">
+                <span class="readout-label">中心偏移</span>
+                <span class="readout-value" id="leftOffset">0.000</span>
+              </div>
+            </div>
+          </article>
+
+          <article class="stick-card right" id="rightCard">
+            <div class="stick-head">
+              <h3 class="stick-title">右摇杆</h3>
+              <span class="live-state" id="rightLiveState">未连接</span>
+            </div>
+            <div class="stick-stage">
+              <svg id="rightPlot" viewBox="0 0 260 260" role="img" aria-label="右摇杆轨迹，当前位置居中">
+                <defs>
+                  <clipPath id="rightClip"><circle cx="130" cy="130" r="112"/></clipPath>
+                </defs>
+                <rect class="plot-bg" x="0" y="0" width="260" height="260" rx="6"/>
+                <circle class="plot-grid" cx="130" cy="130" r="112"/>
+                <circle class="plot-grid" cx="130" cy="130" r="84"/>
+                <circle class="plot-grid" cx="130" cy="130" r="56"/>
+                <line class="plot-cross" x1="18" y1="130" x2="242" y2="130"/>
+                <line class="plot-cross" x1="130" y1="18" x2="130" y2="242"/>
+                <circle class="drift-ring" id="rightDriftRing" cx="130" cy="130" r="16"/>
+                <g clip-path="url(#rightClip)">
+                  <polyline class="stick-trail" id="rightTrail" points=""/>
+                  <line class="center-link" id="rightLink" x1="130" y1="130" x2="130" y2="130"/>
+                </g>
+                <circle class="plot-center" cx="130" cy="130" r="3"/>
+                <circle class="stick-point" id="rightPoint" cx="130" cy="130" r="6"/>
+                <text class="axis-tag" x="238" y="126" text-anchor="end">X</text>
+                <text class="axis-tag" x="134" y="24">Y</text>
+              </svg>
+              <span class="stage-caption">虚线 = 0.07 偏移阈值</span>
+            </div>
+            <div class="readout-grid">
+              <div class="readout">
+                <span class="readout-label">X 轴</span>
+                <span class="readout-value" id="rightX">0.000</span>
+              </div>
+              <div class="readout">
+                <span class="readout-label">Y 轴</span>
+                <span class="readout-value" id="rightY">0.000</span>
+              </div>
+              <div class="readout">
+                <span class="readout-label">中心偏移</span>
+                <span class="readout-value" id="rightOffset">0.000</span>
+              </div>
+            </div>
+          </article>
+        </div>
+      </section>
+
+      <aside class="instrument" aria-label="检测结果与设备信息">
+        <section class="panel" aria-labelledby="testHeading">
+          <div class="panel-heading">
+            <div>
+              <h2 id="testHeading">静止检测</h2>
+              <p>松开摇杆，保持手柄静止</p>
+            </div>
+            <span class="duration-tag">3.0 秒</span>
+          </div>
+
+          <div class="test-result" id="testResult" aria-live="polite">
+            <span class="result-label">检测状态</span>
+            <strong class="result-title" id="resultTitle">等待检测</strong>
+            <p class="result-note" id="resultNote">连接手柄后点击“开始静止检测”。</p>
+          </div>
+
+          <div class="progress-track" role="progressbar" id="testProgress" aria-label="检测进度" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0">
+            <div class="progress-fill" id="progressFill"></div>
+          </div>
+          <div class="progress-labels">
+            <span id="progressStatus">未开始</span>
+            <span id="progressPercent">0%</span>
+          </div>
+
+          <div class="metrics">
+            <div class="metric-row">
+              <span class="metric-name">左侧中心偏移</span>
+              <span class="metric-value" id="leftTestOffset">--</span>
+            </div>
+            <div class="metric-row">
+              <span class="metric-name">右侧中心偏移</span>
+              <span class="metric-value" id="rightTestOffset">--</span>
+            </div>
+            <div class="metric-row">
+              <span class="metric-name">左侧静止噪声</span>
+              <span class="metric-value" id="leftTestNoise">--</span>
+            </div>
+            <div class="metric-row">
+              <span class="metric-name">右侧静止噪声</span>
+              <span class="metric-value" id="rightTestNoise">--</span>
+            </div>
+            <div class="metric-row">
+              <span class="metric-name">左侧扳机静止值</span>
+              <span class="metric-value" id="leftTestTrigger">--</span>
+            </div>
+            <div class="metric-row">
+              <span class="metric-name">右侧扳机静止值</span>
+              <span class="metric-value" id="rightTestTrigger">--</span>
+            </div>
+          </div>
+          <p class="threshold-note">摇杆：中心偏移低于 0.07 为正常，达到 0.20 为明显跑偏。扳机：静止值低于 0.08 为正常。</p>
+        </section>
+
+        <section class="panel" aria-labelledby="deviceHeading">
+          <div class="panel-heading">
+            <div>
+              <h2 id="deviceHeading">设备信息</h2>
+              <p>Gamepad API</p>
+            </div>
+            <span class="duration-tag" id="inputCount">0 个输入</span>
+          </div>
+          <p class="device-name" id="deviceName">未连接手柄</p>
+          <div class="device-meta">
+            <div class="device-cell">
+              <span>映射</span>
+              <strong id="deviceMapping">--</strong>
+            </div>
+            <div class="device-cell">
+              <span>电量</span>
+              <strong id="deviceBattery">--</strong>
+            </div>
+          </div>
+        </section>
+      </aside>
+    </div>
+
+    <section class="input-strip" aria-label="输入测试">
+      <div class="button-panel">
+        <div class="mini-heading">
+          <h2>按键响应</h2>
+          <span>按下后高亮</span>
+        </div>
+        <div class="button-grid" id="buttonGrid"></div>
+      </div>
+      <div class="trigger-panel">
+        <div class="mini-heading">
+          <h2>扳机行程</h2>
+          <span>0.00 - 1.00</span>
+        </div>
+        <div class="trigger-stack">
+          <div class="trigger-row">
+            <span class="trigger-name">LT / L2</span>
+            <div class="trigger-track"><div class="trigger-fill" id="leftTriggerFill"></div></div>
+            <span class="trigger-value" id="leftTriggerValue">0.00</span>
+          </div>
+          <div class="trigger-row">
+            <span class="trigger-name">RT / R2</span>
+            <div class="trigger-track"><div class="trigger-fill" id="rightTriggerFill"></div></div>
+            <span class="trigger-value" id="rightTriggerValue">0.00</span>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <div class="footer-line">
+      <span>本地读取，不上传手柄数据</span>
+      <span id="refreshRate">60 Hz</span>
+    </div>
+  </main>
+
+  <script>
+    (() => {
+      "use strict";
+
+      const CENTER = 130;
+      const PLOT_RADIUS = 112;
+      const DRIFT_THRESHOLD = 0.07;
+      const SEVERE_THRESHOLD = 0.20;
+      const NOISE_THRESHOLD = 0.035;
+      const TRIGGER_THRESHOLD = 0.08;
+      const TRIGGER_SEVERE_THRESHOLD = 0.30;
+      const TEST_DURATION = 3000;
+      const HISTORY_LIMIT = 140;
+
+      const buttonLabels = [
+        "A / ×", "B / ○", "X / □", "Y / △", "LB", "RB", "LT", "RT",
+        "View", "Menu", "LS", "RS", "↑", "↓", "←", "→", "Home", "键 17"
+      ];
+
+      const ui = {
+        connectionChip: document.getElementById("connectionChip"),
+        connectionText: document.getElementById("connectionText"),
+        connectNotice: document.getElementById("connectNotice"),
+        connectTitle: document.getElementById("connectTitle"),
+        connectDetail: document.getElementById("connectDetail"),
+        supportWarning: document.getElementById("supportWarning"),
+        startButton: document.getElementById("startButton"),
+        startButtonText: document.getElementById("startButtonText"),
+        resetButton: document.getElementById("resetButton"),
+        testResult: document.getElementById("testResult"),
+        resultTitle: document.getElementById("resultTitle"),
+        resultNote: document.getElementById("resultNote"),
+        testProgress: document.getElementById("testProgress"),
+        progressFill: document.getElementById("progressFill"),
+        progressStatus: document.getElementById("progressStatus"),
+        progressPercent: document.getElementById("progressPercent"),
+        leftTestOffset: document.getElementById("leftTestOffset"),
+        rightTestOffset: document.getElementById("rightTestOffset"),
+        leftTestNoise: document.getElementById("leftTestNoise"),
+        rightTestNoise: document.getElementById("rightTestNoise"),
+        leftTestTrigger: document.getElementById("leftTestTrigger"),
+        rightTestTrigger: document.getElementById("rightTestTrigger"),
+        deviceName: document.getElementById("deviceName"),
+        deviceMapping: document.getElementById("deviceMapping"),
+        deviceBattery: document.getElementById("deviceBattery"),
+        inputCount: document.getElementById("inputCount"),
+        buttonGrid: document.getElementById("buttonGrid"),
+        leftTriggerFill: document.getElementById("leftTriggerFill"),
+        rightTriggerFill: document.getElementById("rightTriggerFill"),
+        leftTriggerValue: document.getElementById("leftTriggerValue"),
+        rightTriggerValue: document.getElementById("rightTriggerValue"),
+        refreshRate: document.getElementById("refreshRate")
+      };
+
+      const sticks = {
+        left: {
+          card: document.getElementById("leftCard"),
+          plot: document.getElementById("leftPlot"),
+          point: document.getElementById("leftPoint"),
+          trail: document.getElementById("leftTrail"),
+          link: document.getElementById("leftLink"),
+          ring: document.getElementById("leftDriftRing"),
+          state: document.getElementById("leftLiveState"),
+          x: document.getElementById("leftX"),
+          y: document.getElementById("leftY"),
+          offset: document.getElementById("leftOffset"),
+          history: []
+        },
+        right: {
+          card: document.getElementById("rightCard"),
+          plot: document.getElementById("rightPlot"),
+          point: document.getElementById("rightPoint"),
+          trail: document.getElementById("rightTrail"),
+          link: document.getElementById("rightLink"),
+          ring: document.getElementById("rightDriftRing"),
+          state: document.getElementById("rightLiveState"),
+          x: document.getElementById("rightX"),
+          y: document.getElementById("rightY"),
+          offset: document.getElementById("rightOffset"),
+          history: []
+        }
+      };
+
+      const state = {
+        activeIndex: null,
+        pad: null,
+        zoom: 2,
+        testActive: false,
+        testStart: 0,
+        testFrame: 0,
+        testSamples: { left: [], right: [], leftTrigger: [], rightTrigger: [] },
+        lastFrameTime: performance.now(),
+        fps: 60,
+        buttons: [],
+        lastPadIdentity: ""
+      };
+
+      for (let i = 0; i < 18; i += 1) {
+        const button = document.createElement("button");
+        button.type = "button";
+        button.className = "pad-button";
+        button.tabIndex = -1;
+        button.setAttribute("aria-label", `按键 ${i} ${buttonLabels[i] || ""}`);
+        button.innerHTML = `<span>${i}</span><span>${buttonLabels[i] || "未映射"}</span>`;
+        ui.buttonGrid.appendChild(button);
+        state.buttons.push(button);
+      }
+
+      if (!("getGamepads" in navigator)) {
+        ui.supportWarning.classList.add("visible");
+        ui.startButton.disabled = true;
+        return;
+      }
+
+      function clamp(value, min, max) {
+        return Math.min(max, Math.max(min, value));
+      }
+
+      function formatAxis(value) {
+        if (!Number.isFinite(value)) return "0.000";
+        return (value >= 0 ? "+" : "") + value.toFixed(3);
+      }
+
+      function formatDecimal(value) {
+        return Number.isFinite(value) ? value.toFixed(3) : "--";
+      }
+
+      function axisAt(pad, index) {
+        return pad && pad.axes && Number.isFinite(pad.axes[index]) ? pad.axes[index] : 0;
+      }
+
+      function buttonValue(pad, index) {
+        if (!pad || !pad.buttons || !pad.buttons[index]) return 0;
+        return Number.isFinite(pad.buttons[index].value) ? pad.buttons[index].value : 0;
+      }
+
+      function setLiveState(side, offset, hasPad) {
+        const element = sticks[side].state;
+        element.classList.remove("ok", "warn", "bad");
+        if (!hasPad) {
+          element.textContent = "未连接";
+          return;
+        }
+        if (offset >= SEVERE_THRESHOLD) {
+          element.textContent = "明显偏移";
+          element.classList.add("bad");
+        } else if (offset >= DRIFT_THRESHOLD) {
+          element.textContent = "检测到偏移";
+          element.classList.add("warn");
+        } else {
+          element.textContent = "中心稳定";
+          element.classList.add("ok");
+        }
+      }
+
+      function plotCoordinates(x, y) {
+        const zoom = state.zoom;
+        const px = CENTER + clamp(x * PLOT_RADIUS * zoom, -PLOT_RADIUS * 0.98, PLOT_RADIUS * 0.98);
+        const py = CENTER + clamp(y * PLOT_RADIUS * zoom, -PLOT_RADIUS * 0.98, PLOT_RADIUS * 0.98);
+        return [px, py];
+      }
+
+      function addHistory(side, x, y) {
+        const target = sticks[side];
+        const last = target.history[target.history.length - 1];
+        if (!last || Math.hypot(last[0] - x, last[1] - y) > 0.0005) {
+          target.history.push([x, y]);
+          if (target.history.length > HISTORY_LIMIT) target.history.shift();
+        }
+      }
+
+      function updateHistoryPath(side) {
+        const target = sticks[side];
+        const points = target.history.map(([x, y]) => {
+          const [px, py] = plotCoordinates(x, y);
+          return `${px.toFixed(1)},${py.toFixed(1)}`;
+        }).join(" ");
+        target.trail.setAttribute("points", points);
+      }
+
+      function clearTrails() {
+        sticks.left.history.length = 0;
+        sticks.right.history.length = 0;
+        sticks.left.trail.setAttribute("points", "");
+        sticks.right.trail.setAttribute("points", "");
+      }
+
+      function updateZoom(zoom) {
+        state.zoom = zoom;
+        document.querySelectorAll(".zoom-button").forEach((button) => {
+          const active = Number(button.dataset.zoom) === zoom;
+          button.classList.toggle("active", active);
+          button.setAttribute("aria-pressed", String(active));
+        });
+        document.querySelectorAll(".drift-ring").forEach((ring) => {
+          ring.setAttribute("r", (PLOT_RADIUS * DRIFT_THRESHOLD * zoom).toFixed(2));
+        });
+        updateHistoryPath("left");
+        updateHistoryPath("right");
+      }
+
+      function updateStick(side, x, y, hasPad) {
+        const target = sticks[side];
+        const offset = Math.hypot(x, y);
+        const [px, py] = plotCoordinates(x, y);
+
+        target.point.setAttribute("cx", px.toFixed(2));
+        target.point.setAttribute("cy", py.toFixed(2));
+        target.link.setAttribute("x2", px.toFixed(2));
+        target.link.setAttribute("y2", py.toFixed(2));
+        target.x.textContent = formatAxis(x);
+        target.y.textContent = formatAxis(y);
+        target.offset.textContent = offset.toFixed(3);
+        target.plot.setAttribute("aria-label", `${side === "left" ? "左" : "右"}摇杆，X ${formatAxis(x)}，Y ${formatAxis(y)}，中心偏移 ${offset.toFixed(3)}`);
+        setLiveState(side, offset, hasPad);
+
+        if (hasPad) {
+          addHistory(side, x, y);
+          updateHistoryPath(side);
+        }
+      }
+
+      function updateConnection(pad) {
+        const connected = Boolean(pad);
+        ui.connectionChip.classList.toggle("connected", connected);
+        ui.connectionText.textContent = connected ? "手柄已连接" : "等待手柄";
+        ui.connectNotice.classList.toggle("visible", !connected);
+
+        if (connected) {
+          ui.deviceName.textContent = pad.id || "未命名手柄";
+          ui.deviceMapping.textContent = pad.mapping || "非标准";
+          if (pad.battery && Number.isFinite(pad.battery.level)) {
+            ui.deviceBattery.textContent = `${Math.round(pad.battery.level * 100)}%${pad.battery.charging ? " · 充电中" : ""}`;
+          } else {
+            ui.deviceBattery.textContent = "浏览器未提供";
+          }
+          ui.connectTitle.textContent = "手柄已连接";
+          ui.connectDetail.textContent = "正在实时读取摇杆和输入状态。";
+        } else {
+          ui.deviceName.textContent = "未连接手柄";
+          ui.deviceMapping.textContent = "--";
+          ui.deviceBattery.textContent = "--";
+          ui.connectTitle.textContent = "连接手柄并按下任意按键";
+          ui.connectDetail.textContent = "浏览器需要一次硬件输入才能显示手柄数据。";
+        }
+      }
+
+      function updateButtons(pad) {
+        let pressedCount = 0;
+        state.buttons.forEach((button, index) => {
+          const input = pad && pad.buttons ? pad.buttons[index] : null;
+          const pressed = Boolean(input && (input.pressed || input.value > 0.5));
+          button.classList.toggle("active", pressed);
+          if (pressed) pressedCount += 1;
+        });
+        ui.inputCount.textContent = `${pressedCount} 个输入`;
+      }
+
+      function updateTriggers(pad) {
+        const left = clamp(buttonValue(pad, 6), 0, 1);
+        const right = clamp(buttonValue(pad, 7), 0, 1);
+        ui.leftTriggerFill.style.width = `${left * 100}%`;
+        ui.rightTriggerFill.style.width = `${right * 100}%`;
+        ui.leftTriggerValue.textContent = left.toFixed(2);
+        ui.rightTriggerValue.textContent = right.toFixed(2);
+      }
+
+      function classify(offset, noise) {
+        if (offset >= SEVERE_THRESHOLD) return { level: "bad", label: "明显跑偏" };
+        if (offset >= DRIFT_THRESHOLD) return { level: "warn", label: "轻微跑偏" };
+        if (noise >= NOISE_THRESHOLD) return { level: "warn", label: "信号抖动" };
+        return { level: "ok", label: "回中良好" };
+      }
+
+      function classifyTrigger(value) {
+        if (value >= TRIGGER_SEVERE_THRESHOLD) return { level: "bad", label: "明显偏移" };
+        if (value >= TRIGGER_THRESHOLD) return { level: "warn", label: "静止偏移" };
+        return { level: "ok", label: "静止归零" };
+      }
+
+      function mean(values) {
+        if (!values.length) return 0;
+        return values.reduce((sum, value) => sum + value, 0) / values.length;
+      }
+
+      function analyzeSamples(samples) {
+        if (!samples.length) return { offset: 0, noise: 0 };
+        let sumX = 0;
+        let sumY = 0;
+        samples.forEach(([x, y]) => {
+          sumX += x;
+          sumY += y;
+        });
+        const meanX = sumX / samples.length;
+        const meanY = sumY / samples.length;
+        const deviations = samples.map(([x, y]) => Math.hypot(x - meanX, y - meanY));
+        deviations.sort((a, b) => a - b);
+        const p95Index = Math.min(deviations.length - 1, Math.floor(deviations.length * 0.95));
+        return {
+          offset: Math.hypot(meanX, meanY),
+          noise: deviations[p95Index] || 0
+        };
+      }
+
+      function updateTestProgress(elapsed) {
+        const progress = clamp(elapsed / TEST_DURATION * 100, 0, 100);
+        ui.progressFill.style.width = `${progress}%`;
+        ui.progressPercent.textContent = `${Math.round(progress)}%`;
+        ui.testProgress.setAttribute("aria-valuenow", String(Math.round(progress)));
+        const remaining = Math.max(0, (TEST_DURATION - elapsed) / 1000);
+        ui.progressStatus.textContent = progress < 100 ? `采集中 · 剩余 ${remaining.toFixed(1)} 秒` : "采集完成";
+        ui.startButtonText.textContent = `检测中 ${remaining.toFixed(1)}s`;
+      }
+
+      function completeTest() {
+        state.testActive = false;
+        ui.startButton.disabled = false;
+        ui.startButtonText.textContent = "重新检测";
+
+        const left = analyzeSamples(state.testSamples.left);
+        const right = analyzeSamples(state.testSamples.right);
+        const leftTrigger = mean(state.testSamples.leftTrigger);
+        const rightTrigger = mean(state.testSamples.rightTrigger);
+        const leftResult = classify(left.offset, left.noise);
+        const rightResult = classify(right.offset, right.noise);
+        const leftTriggerResult = classifyTrigger(leftTrigger);
+        const rightTriggerResult = classifyTrigger(rightTrigger);
+        const severity = { ok: 0, warn: 1, bad: 2 };
+        const candidates = [
+          { ...leftResult, side: "左摇杆", component: "stick", value: left.offset },
+          { ...rightResult, side: "右摇杆", component: "stick", value: right.offset },
+          { ...leftTriggerResult, side: "LT 扳机", component: "trigger", value: leftTrigger },
+          { ...rightTriggerResult, side: "RT 扳机", component: "trigger", value: rightTrigger }
+        ];
+        const overall = candidates.reduce((selected, candidate) => (
+          severity[candidate.level] > severity[selected.level] ? candidate : selected
+        ));
+
+        ui.testResult.classList.remove("ok", "warn", "bad");
+        ui.testResult.classList.add(overall.level);
+        ui.leftTestOffset.textContent = formatDecimal(left.offset);
+        ui.rightTestOffset.textContent = formatDecimal(right.offset);
+        ui.leftTestNoise.textContent = formatDecimal(left.noise);
+        ui.rightTestNoise.textContent = formatDecimal(right.noise);
+        ui.leftTestTrigger.textContent = formatDecimal(leftTrigger);
+        ui.rightTestTrigger.textContent = formatDecimal(rightTrigger);
+
+        if (overall.level === "ok") {
+          ui.resultTitle.textContent = "未检测到明显偏移";
+          ui.resultNote.textContent = "两侧摇杆回中与扳机静止值均在阈值内。";
+        } else if (overall.label === "信号抖动") {
+          ui.resultTitle.textContent = `${overall.side}信号抖动`;
+          ui.resultNote.textContent = "中心位置尚可，但静止读数波动较大，建议清洁或复测。";
+        } else if (overall.component === "trigger") {
+          ui.resultTitle.textContent = `${overall.side}${overall.label}`;
+          ui.resultNote.textContent = `未按下时读数为 ${overall.value.toFixed(3)}，建议复测或校准扳机。`;
+        } else {
+          ui.resultTitle.textContent = `${overall.side}${overall.label}`;
+          ui.resultNote.textContent = `中心偏移 ${overall.value.toFixed(3)}，建议在游戏中提高死区或检修摇杆。`;
+        }
+
+        ui.progressFill.style.width = "100%";
+        ui.progressPercent.textContent = "100%";
+        ui.testProgress.setAttribute("aria-valuenow", "100");
+        ui.progressStatus.textContent = "检测完成";
+      }
+
+      function runTestFrame(now) {
+        if (!state.testActive) return;
+        const pad = navigator.getGamepads ? navigator.getGamepads()[state.activeIndex] : null;
+        if (!pad) {
+          state.testActive = false;
+          ui.startButton.disabled = false;
+          ui.startButtonText.textContent = "开始静止检测";
+          ui.resultTitle.textContent = "手柄已断开";
+          ui.resultNote.textContent = "重新连接手柄后再进行静止检测。";
+          return;
+        }
+
+        state.testSamples.left.push([axisAt(pad, 0), axisAt(pad, 1)]);
+        state.testSamples.right.push([axisAt(pad, 2), axisAt(pad, 3)]);
+        state.testSamples.leftTrigger.push(clamp(buttonValue(pad, 6), 0, 1));
+        state.testSamples.rightTrigger.push(clamp(buttonValue(pad, 7), 0, 1));
+        const elapsed = now - state.testStart;
+        updateTestProgress(elapsed);
+        if (elapsed >= TEST_DURATION) {
+          completeTest();
+          return;
+        }
+        state.testFrame = requestAnimationFrame(runTestFrame);
+      }
+
+      function startTest() {
+        if (state.testActive) return;
+        const pads = navigator.getGamepads ? navigator.getGamepads() : [];
+        const pad = state.activeIndex !== null ? pads[state.activeIndex] : Array.from(pads).find(Boolean);
+        if (!pad) {
+          ui.testResult.classList.remove("ok", "warn", "bad");
+          ui.resultTitle.textContent = "未检测到手柄";
+          ui.resultNote.textContent = "连接手柄并按下任意按键，然后再开始检测。";
+          return;
+        }
+
+        state.activeIndex = pad.index;
+        state.pad = pad;
+        updateConnection(pad);
+        state.testActive = true;
+        state.testStart = performance.now();
+        state.testSamples = { left: [], right: [], leftTrigger: [], rightTrigger: [] };
+        ui.startButton.disabled = true;
+        ui.testResult.classList.remove("ok", "warn", "bad");
+        ui.resultTitle.textContent = "正在采集静止数据";
+        ui.resultNote.textContent = "请松开双手，不要触碰摇杆和扳机。";
+        ui.progressStatus.textContent = "采集中 · 剩余 3.0 秒";
+        ui.progressPercent.textContent = "0%";
+        ui.progressFill.style.width = "0%";
+        ui.testProgress.setAttribute("aria-valuenow", "0");
+        ui.leftTestOffset.textContent = "--";
+        ui.rightTestOffset.textContent = "--";
+        ui.leftTestNoise.textContent = "--";
+        ui.rightTestNoise.textContent = "--";
+        ui.leftTestTrigger.textContent = "--";
+        ui.rightTestTrigger.textContent = "--";
+        state.testFrame = requestAnimationFrame(runTestFrame);
+      }
+
+      function findPad() {
+        const pads = navigator.getGamepads ? Array.from(navigator.getGamepads()) : [];
+        const available = pads.filter(Boolean);
+        if (!available.length) {
+          state.activeIndex = null;
+          state.pad = null;
+          return null;
+        }
+
+        let pad = state.activeIndex !== null ? pads[state.activeIndex] : null;
+        if (!pad) {
+          pad = available.find((candidate) => candidate.connected) || available[0];
+          state.activeIndex = pad.index;
+        }
+        return pad;
+      }
+
+      function updateFrame(now) {
+        const delta = now - state.lastFrameTime;
+        state.lastFrameTime = now;
+        if (delta > 0 && delta < 250) {
+          state.fps = state.fps * 0.94 + (1000 / delta) * 0.06;
+          ui.refreshRate.textContent = `${Math.round(state.fps)} Hz`;
+        }
+
+        const pad = findPad();
+        const identity = pad ? `${pad.index}:${pad.id}` : "";
+        if (identity !== state.lastPadIdentity) {
+          state.lastPadIdentity = identity;
+          updateConnection(pad);
+        }
+        state.pad = pad;
+
+        const hasPad = Boolean(pad);
+        updateStick("left", axisAt(pad, 0), axisAt(pad, 1), hasPad);
+        updateStick("right", axisAt(pad, 2), axisAt(pad, 3), hasPad);
+        updateButtons(pad);
+        updateTriggers(pad);
+        requestAnimationFrame(updateFrame);
+      }
+
+      ui.startButton.addEventListener("click", startTest);
+      ui.resetButton.addEventListener("click", clearTrails);
+
+      document.querySelectorAll(".zoom-button").forEach((button) => {
+        button.addEventListener("click", () => updateZoom(Number(button.dataset.zoom)));
+      });
+
+      window.addEventListener("gamepadconnected", (event) => {
+        state.activeIndex = event.gamepad.index;
+        state.pad = event.gamepad;
+        updateConnection(event.gamepad);
+      });
+
+      window.addEventListener("gamepaddisconnected", (event) => {
+        if (state.activeIndex === event.gamepad.index) {
+          state.activeIndex = null;
+          state.pad = null;
+          updateConnection(null);
+          clearTrails();
+        }
+      });
+
+      window.addEventListener("blur", () => {
+        if (state.testActive) {
+          cancelAnimationFrame(state.testFrame);
+          state.testActive = false;
+          ui.startButton.disabled = false;
+          ui.startButtonText.textContent = "开始静止检测";
+          ui.resultTitle.textContent = "检测已暂停";
+          ui.resultNote.textContent = "窗口失去焦点，请保持本页面在前台后重试。";
+        }
+      });
+
+      updateZoom(2);
+      updateConnection(null);
+      requestAnimationFrame(updateFrame);
+    })();
+  </script>
+</body>
+</html>
